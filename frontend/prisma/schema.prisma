@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  SELLER
+  ANALYST
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  role         UserRole  @default(SELLER)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  products     Product[]
+
+  @@index([role])
+  @@map("users")
+}
+
+model Product {
+  id              String            @id @default(cuid())
+  name            String
+  basePrice       Decimal           @db.Decimal(10, 2)
+  category        String
+  stock           Int
+  competitorPrice Decimal?          @db.Decimal(10, 2)
+  demandScore     Decimal           @default(0) @db.Decimal(5, 2)
+  sellerId        String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  seller          User              @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  priceHistory    PriceHistory[]
+  orderLines      OrderLine[]
+  demandSnapshots DemandSnapshot[]
+
+  @@index([name])
+  @@index([category])
+  @@index([sellerId, createdAt])
+  @@index([sellerId, category])
+  @@map("products")
+}
+
+model PriceHistory {
+  id              String    @id @default(cuid())
+  productId       String
+  computedPrice   Decimal   @db.Decimal(10, 2)
+  basePrice       Decimal   @db.Decimal(10, 2)
+  competitorPrice Decimal?  @db.Decimal(10, 2)
+  demandScore     Decimal   @db.Decimal(5, 2)
+  modelVersion    String
+  createdAt       DateTime  @default(now())
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("price_history")
+}
+
+model OrderLine {
+  id         String   @id @default(cuid())
+  productId  String
+  quantity   Int
+  unitPrice  Decimal  @db.Decimal(10, 2)
+  soldAt     DateTime @default(now())
+  channel    String?
+  createdAt  DateTime @default(now())
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, soldAt(sort: Desc)])
+  @@index([soldAt(sort: Desc)])
+  @@map("order_lines")
+}
+
+model DemandSnapshot {
+  id           String   @id @default(cuid())
+  productId    String
+  demandScore  Decimal  @db.Decimal(5, 2)
+  observedAt   DateTime @default(now())
+  source       String?
+  createdAt    DateTime @default(now())
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, observedAt(sort: Desc)])
+  @@index([observedAt(sort: Desc)])
+  @@map("demand_snapshots")
+}
